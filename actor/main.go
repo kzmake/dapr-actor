@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/dapr/go-sdk/actor"
-	daprd "github.com/dapr/go-sdk/service/grpc"
+	daprd "github.com/dapr/go-sdk/service/http"
 
 	"github.com/kzmake/dapr-actor/api"
 )
@@ -27,18 +27,20 @@ func (a *VendingMachineActor) Type() string {
 }
 
 func (a *VendingMachineActor) Drop(ctx context.Context, coin api.Coin) error {
+	log.Println("drop coin: ", coin)
 	vm, err := a.get()
 	if err != nil {
 		return err
 	}
-
+	log.Println("get vm: ", vm)
 	vm.CoinSlot = append(vm.CoinSlot, coin)
-
+	log.Println("append coin: ", vm.CoinSlot)
 	err = a.set(vm)
 	if err != nil {
 		return err
 	}
 
+	log.Println("set vm: ", vm)
 	return nil
 }
 func (a *VendingMachineActor) Return(context.Context) ([]api.Coin, error) {
@@ -67,7 +69,11 @@ func (a *VendingMachineActor) Get(context.Context) (*api.VendingMachine, error) 
 }
 
 func (a *VendingMachineActor) get() (*api.VendingMachine, error) {
-	vm := &api.VendingMachine{}
+	vm := &api.VendingMachine{
+		ID:       a.ID(),
+		CoinSlot: []api.Coin{},
+	}
+
 	if found, err := a.GetStateManager().Contains(a.ID()); err != nil {
 		fmt.Println("state manager call contains with " + a.ID() + "err = " + err.Error())
 
@@ -94,11 +100,7 @@ func (a *VendingMachineActor) set(vm *api.VendingMachine) error {
 }
 
 func main() {
-	s, err := daprd.NewService(":50051")
-	if err != nil {
-		panic(err)
-	}
-
+	s := daprd.NewService(":8080")
 	s.RegisterActorImplFactory(NewVendingMachineActor())
 
 	if err := s.Start(); err != nil && err != http.ErrServerClosed {

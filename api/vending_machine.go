@@ -23,9 +23,15 @@ type VendingMachine struct {
 }
 
 type VendingMachineActor struct {
+	Id string `json:"id"`
+
 	Drop   func(context.Context, Coin) error
 	Return func(context.Context) ([]Coin, error)
 	Get    func(context.Context) (*VendingMachine, error)
+}
+
+func NewVendingMachineActor() *VendingMachineActor {
+	return &VendingMachineActor{Id: ulid.MustNew(ulid.Timestamp(time.Now()), crand.Reader).String()}
 }
 
 func (a *VendingMachineActor) Type() string {
@@ -33,5 +39,5 @@ func (a *VendingMachineActor) Type() string {
 }
 
 func (a *VendingMachineActor) ID() string {
-	return ulid.MustNew(ulid.Timestamp(time.Now()), crand.Reader).String()
+	return a.Id
 }

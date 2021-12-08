@@ -18,7 +18,7 @@ func main() {
 	}
 	defer client.Close()
 
-	actor := new(api.VendingMachineActor)
+	actor := api.NewVendingMachineActor()
 	client.ImplActorClientStub(actor)
 
 	actor.Drop(ctx, api.Yen10)
