@@ -4,11 +4,13 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/dapr/go-sdk/actor"
 	daprd "github.com/dapr/go-sdk/service/http"
+	"github.com/pkg/errors"
 
-	"github.com/kzmake/dapr-actor/api"
+	"github.com/kzmake/dapr-actor/domain"
 )
 
 type PiggyBankActor struct {
@@ -25,11 +27,17 @@ func (a *PiggyBankActor) Type() string {
 	return "PiggyBank"
 }
 
-func (a *PiggyBankActor) Drop(ctx context.Context, coin api.Coin) error {
-	log.Println("Actor: ", a.Type(), "/", a.ID(), " drop a coin: ", coin)
+func (a *PiggyBankActor) Put(ctx context.Context, coin domain.Coin) error {
+	log.Println("Actor: ", a.Type(), "/", a.ID(), " call Put: ", coin)
+
 	pg, err := a.get()
 	if err != nil {
 		return err
+	}
+
+	if pg.State == domain.Broken {
+		log.Println("... broken piggy bank")
+		return errors.Errorf("broken piggy bank")
 	}
 
 	pg.Coins = append(pg.Coins, coin)
@@ -41,43 +49,55 @@ func (a *PiggyBankActor) Drop(ctx context.Context, coin api.Coin) error {
 
 	return nil
 }
-func (a *PiggyBankActor) Return(context.Context) ([]api.Coin, error) {
-	log.Println("Actor: ", a.Type(), "/", a.ID(), " return coins")
+func (a *PiggyBankActor) Break(context.Context) ([]domain.Coin, error) {
+	log.Println("Actor: ", a.Type(), "/", a.ID(), " call Break")
+
 	pg, err := a.get()
 	if err != nil {
 		return nil, err
 	}
 
-	new := &api.PiggyBank{
-		ID:    a.ID(),
-		Coins: []api.Coin{},
+	broken := &domain.PiggyBank{
+		ID:    domain.PiggyBankID(a.ID()),
+		State: domain.Broken,
+		Coins: []domain.Coin{},
 	}
-	if err := a.set(new); err != nil {
+
+	if err := a.set(broken); err != nil {
 		return nil, err
 	}
 
 	return pg.Coins, nil
 }
-func (a *PiggyBankActor) Get(context.Context) (*api.PiggyBank, error) {
-	log.Println("Actor: ", a.Type(), "/", a.ID(), " get a piggy bank")
+func (a *PiggyBankActor) Jingle(context.Context) (string, error) {
+	log.Println("Actor: ", a.Type(), "/", a.ID(), " call Jingle")
+
 	pg, err := a.get()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return pg, nil
+	log.Println("Actor: ", pg, len(pg.Coins))
+
+	if pg.State == domain.Broken {
+		log.Println("... broken piggy bank")
+		return "", errors.Errorf("broken piggy bank")
+	}
+
+	return strings.Repeat("じゃら", len(pg.Coins)), nil
 }
 
-func (a *PiggyBankActor) get() (*api.PiggyBank, error) {
-	pg := &api.PiggyBank{
-		ID:    a.ID(),
-		Coins: []api.Coin{},
+func (a *PiggyBankActor) get() (*domain.PiggyBank, error) {
+	pg := &domain.PiggyBank{
+		ID:    domain.PiggyBankID(a.ID()),
+		State: domain.Healthy,
+		Coins: []domain.Coin{},
 	}
 
-	if found, err := a.GetStateManager().Contains("piggy-bank"); err != nil {
+	if found, err := a.GetStateManager().Contains("self"); err != nil {
 		return nil, err
 	} else if found {
-		if err := a.GetStateManager().Get("piggy-bank", pg); err != nil {
+		if err := a.GetStateManager().Get("self", pg); err != nil {
 			return nil, err
 		}
 	}
@@ -85,8 +105,8 @@ func (a *PiggyBankActor) get() (*api.PiggyBank, error) {
 	return pg, nil
 }
 
-func (a *PiggyBankActor) set(pg *api.PiggyBank) error {
-	if err := a.GetStateManager().Set("piggy-bank", pg); err != nil {
+func (a *PiggyBankActor) set(pg *domain.PiggyBank) error {
+	if err := a.GetStateManager().Set("self", pg); err != nil {
 		return err
 	}
 

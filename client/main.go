@@ -2,41 +2,74 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 
 	dapr "github.com/dapr/go-sdk/client"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kzmake/dapr-actor/api"
+	"github.com/kzmake/dapr-actor/domain"
 )
 
 func main() {
-	client, err := dapr.NewClient()
+	c, err := dapr.NewClient()
 	if err != nil {
 		panic(err)
 	}
-	defer client.Close()
+	defer c.Close()
 
-	actor := api.NewPiggyBankActor()
-	client.ImplActorClientStub(actor)
+	eg, ctx := errgroup.WithContext(context.Background())
 
-	ctx := context.Background()
+	eg.Go(func() error {
+		pb := domain.NewPiggyBank()
+		actor := api.NewPiggyBankActor(pb)
+		c.ImplActorClientStub(actor)
 
-	actor.Drop(ctx, api.Yen10)
-	actor.Drop(ctx, api.Yen10)
-	actor.Drop(ctx, api.Yen100)
-	pg, _ := actor.Get(ctx)
-	fmt.Println("get a piggy bank: ", pg)
+		s, err := actor.Jingle(ctx)
+		log.Printf("actor(pb: %s).Jingle: %+v, %+v", string(pb.ID), s, err)
+		if err != nil {
+			return err
+		}
 
-	actor.Drop(ctx, api.Yen500)
-	pg, _ = actor.Get(ctx)
-	fmt.Println("get a piggy bank: ", pg)
+		actor.Put(ctx, domain.Yen10)
+		s, err = actor.Jingle(ctx)
+		log.Printf("actor(pb: %s).Jingle: %+v, %+v", string(pb.ID), s, err)
+		if err != nil {
+			return err
+		}
 
-	coins, _ := actor.Return(ctx)
-	fmt.Println("return conins: ", coins)
-	pg, _ = actor.Get(ctx)
-	fmt.Println("get a piggy bank: ", pg)
+		actor.Put(ctx, domain.Yen100)
+		actor.Put(ctx, domain.Yen500)
+		s, err = actor.Jingle(ctx)
+		log.Printf("actor(pb: %s).Jingle: %+v, %+v", string(pb.ID), s, err)
+		if err != nil {
+			return err
+		}
 
-	actor.Drop(ctx, api.Yen10)
-	pg, _ = actor.Get(ctx)
-	fmt.Println("get a piggy bank: ", pg)
+		coins, err := actor.Break(ctx)
+		log.Printf("actor(pb: %s).Break: %+v, %+v", string(pb.ID), coins, err)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	eg.Go(func() error {
+		pb := domain.NewPiggyBank()
+		actor := api.NewPiggyBankActor(pb)
+		c.ImplActorClientStub(actor)
+
+		coins, err := actor.Break(ctx)
+		log.Printf("actor(pb: %s).Break: %+v, %+v", string(pb.ID), coins, err)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		log.Fatal(err)
+	}
 }
