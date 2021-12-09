@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"time"
 
 	dapr "github.com/dapr/go-sdk/client"
 	"golang.org/x/sync/errgroup"
@@ -12,6 +13,8 @@ import (
 )
 
 func main() {
+	time.Sleep(15 * time.Second) // wait dapr-sidecar
+
 	c, err := dapr.NewClient()
 	if err != nil {
 		panic(err)

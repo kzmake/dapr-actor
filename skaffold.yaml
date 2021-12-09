@@ -3,34 +3,17 @@ apiVersion: skaffold/v2beta25
 kind: Config
 metadata:
 requires:
-  - configs: ["dapr", "actor"]
+  - configs: ["client"]
 ---
 apiVersion: skaffold/v2beta25
 kind: Config
 metadata:
-  name: dapr
-deploy:
-  helm:
-    releases:
-      - name: dapr
-        repo: https://dapr.github.io/helm-charts
-        remoteChart: dapr
-        version: "1.5"
-        namespace: dapr-system
-        createNamespace: true
-        wait: true
----
-apiVersion: skaffold/v2beta25
-kind: Config
-metadata:
-  name: actor
+  name: client
 build:
   artifacts:
-    - image: actor
-      docker: { dockerfile: Dockerfile, network: host, buildArgs: { SERVICE_NAME: actor } }
     - image: client
-      docker: { dockerfile: Dockerfile, network: host, buildArgs: { SERVICE_NAME: client } }
+      docker: { dockerfile: Dockerfile, network: host, buildArgs: { SERVICE_PATH: client } }
 deploy:
   kubectl:
     manifests:
-    - deployment.yaml
+    - manifest/client/app.yaml

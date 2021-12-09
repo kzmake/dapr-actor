@@ -6,13 +6,14 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 
-ARG SERVICE_NAME=actor
+ARG SERVICE_PATH=actor
 ARG CGO_ENABLED=0
 ARG GOOS=linux
 ARG GOARCH=amd64
 COPY api api
-COPY $SERVICE_NAME $SERVICE_NAME
-RUN go build -o /go/bin/app -ldflags '-s -w' $SERVICE_NAME/main.go
+COPY domain domain
+COPY $SERVICE_PATH $SERVICE_PATH
+RUN go build -o /go/bin/app -ldflags '-s -w' $SERVICE_PATH/main.go
 
 FROM scratch as runner
 
