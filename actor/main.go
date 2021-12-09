@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -12,87 +11,82 @@ import (
 	"github.com/kzmake/dapr-actor/api"
 )
 
-type VendingMachineActor struct {
+type PiggyBankActor struct {
 	actor.ServerImplBase
 }
 
-func NewVendingMachineActor() func() actor.Server {
+func NewPiggyBankActor() func() actor.Server {
 	return func() actor.Server {
-		return &VendingMachineActor{}
+		return &PiggyBankActor{}
 	}
 }
 
-func (a *VendingMachineActor) Type() string {
-	return "vendingmachine"
+func (a *PiggyBankActor) Type() string {
+	return "PiggyBank"
 }
 
-func (a *VendingMachineActor) Drop(ctx context.Context, coin api.Coin) error {
-	log.Println("drop coin: ", coin)
-	vm, err := a.get()
-	if err != nil {
-		return err
-	}
-	log.Println("get vm: ", vm)
-	vm.CoinSlot = append(vm.CoinSlot, coin)
-	log.Println("append coin: ", vm.CoinSlot)
-	err = a.set(vm)
+func (a *PiggyBankActor) Drop(ctx context.Context, coin api.Coin) error {
+	log.Println("Actor: ", a.Type(), "/", a.ID(), " drop a coin: ", coin)
+	pg, err := a.get()
 	if err != nil {
 		return err
 	}
 
-	log.Println("set vm: ", vm)
+	pg.Coins = append(pg.Coins, coin)
+
+	err = a.set(pg)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
-func (a *VendingMachineActor) Return(context.Context) ([]api.Coin, error) {
-	vm, err := a.get()
+func (a *PiggyBankActor) Return(context.Context) ([]api.Coin, error) {
+	log.Println("Actor: ", a.Type(), "/", a.ID(), " return coins")
+	pg, err := a.get()
 	if err != nil {
 		return nil, err
 	}
 
-	new := &api.VendingMachine{
-		ID:       a.ID(),
-		CoinSlot: []api.Coin{},
+	new := &api.PiggyBank{
+		ID:    a.ID(),
+		Coins: []api.Coin{},
 	}
 	if err := a.set(new); err != nil {
 		return nil, err
 	}
 
-	return vm.CoinSlot, nil
+	return pg.Coins, nil
 }
-func (a *VendingMachineActor) Get(context.Context) (*api.VendingMachine, error) {
-	vm, err := a.get()
+func (a *PiggyBankActor) Get(context.Context) (*api.PiggyBank, error) {
+	log.Println("Actor: ", a.Type(), "/", a.ID(), " get a piggy bank")
+	pg, err := a.get()
 	if err != nil {
 		return nil, err
 	}
 
-	return vm, nil
+	return pg, nil
 }
 
-func (a *VendingMachineActor) get() (*api.VendingMachine, error) {
-	vm := &api.VendingMachine{
-		ID:       a.ID(),
-		CoinSlot: []api.Coin{},
+func (a *PiggyBankActor) get() (*api.PiggyBank, error) {
+	pg := &api.PiggyBank{
+		ID:    a.ID(),
+		Coins: []api.Coin{},
 	}
 
-	if found, err := a.GetStateManager().Contains(a.ID()); err != nil {
-		fmt.Println("state manager call contains with " + a.ID() + "err = " + err.Error())
-
+	if found, err := a.GetStateManager().Contains("piggy-bank"); err != nil {
 		return nil, err
 	} else if found {
-		if err := a.GetStateManager().Get(a.ID(), vm); err != nil {
-			fmt.Println("state manager call get with " + a.ID() + "err = " + err.Error())
-
+		if err := a.GetStateManager().Get("piggy-bank", pg); err != nil {
 			return nil, err
 		}
 	}
 
-	return vm, nil
+	return pg, nil
 }
 
-func (a *VendingMachineActor) set(vm *api.VendingMachine) error {
-	if err := a.GetStateManager().Set(a.ID(), vm); err != nil {
-		fmt.Println("state manager call save with " + a.ID() + "err = " + err.Error())
-
+func (a *PiggyBankActor) set(pg *api.PiggyBank) error {
+	if err := a.GetStateManager().Set("piggy-bank", pg); err != nil {
 		return err
 	}
 
@@ -101,7 +95,7 @@ func (a *VendingMachineActor) set(vm *api.VendingMachine) error {
 
 func main() {
 	s := daprd.NewService(":8080")
-	s.RegisterActorImplFactory(NewVendingMachineActor())
+	s.RegisterActorImplFactory(NewPiggyBankActor())
 
 	if err := s.Start(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("error listenning: %v", err)

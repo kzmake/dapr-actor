@@ -10,30 +10,33 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-
 	client, err := dapr.NewClient()
 	if err != nil {
 		panic(err)
 	}
 	defer client.Close()
 
-	actor := api.NewVendingMachineActor()
+	actor := api.NewPiggyBankActor()
 	client.ImplActorClientStub(actor)
+
+	ctx := context.Background()
 
 	actor.Drop(ctx, api.Yen10)
 	actor.Drop(ctx, api.Yen10)
 	actor.Drop(ctx, api.Yen100)
-	vm, _ := actor.Get(ctx)
-	fmt.Println("get a vending machine: ", vm)
+	pg, _ := actor.Get(ctx)
+	fmt.Println("get a piggy bank: ", pg)
 
 	actor.Drop(ctx, api.Yen500)
-	vm, _ = actor.Get(ctx)
-	fmt.Println("get a vending machine: ", vm)
+	pg, _ = actor.Get(ctx)
+	fmt.Println("get a piggy bank: ", pg)
 
 	coins, _ := actor.Return(ctx)
 	fmt.Println("return conins: ", coins)
+	pg, _ = actor.Get(ctx)
+	fmt.Println("get a piggy bank: ", pg)
 
-	vm, _ = actor.Get(ctx)
-	fmt.Println("get a vending machine: ", vm)
+	actor.Drop(ctx, api.Yen10)
+	pg, _ = actor.Get(ctx)
+	fmt.Println("get a piggy bank: ", pg)
 }
